@@ -1,7 +1,7 @@
 (in-package :practise-player)
 
 
-(defparameter +read-buffer-size+ (* 2 8192))
+(defparameter +read-buffer-size+ 8192)
 (defparameter +jack-client-name+ "practise-player")
 
 (defvar *sndfile* nil)
@@ -12,6 +12,8 @@
 (defvar *output-port-l* nil)
 (defvar *output-port-r* nil)
 
+(defvar *loop-begin* 0)
+(defvar *loop-end* nil)
 (defvar *speed* 1.0d0)
 (defvar *pitch* 1.0d0)
 (defvar *volume-left* 1.0)
@@ -39,11 +41,15 @@
           (prog1
               (setq avg (/ (+ (* avg n) x) (+ n 1)))
             (incf n))))))
-(defvar *jack-size-average* nil) ; TEMP
-(defvar *rubberband-required-average* nil) ;TEMP
 
 
 ;;;------------------------------------------------------------------------
+(defun set-loop (begin end)
+  (when (< (- end begin) 1000)
+    (error "loop too short"))
+  (setf *loop-begin* begin)
+  (setf *loop-end* end))
+
 (defun set-speed (speed)
   (setf *speed* (coerce speed 'double-float)))
 
@@ -70,15 +76,14 @@
           (setf (mem-aref channels :pointer 1) right)
           (let ((result-len (rubberband-retrieve rubberband channels retrieve)))
             (loop for i below result-len do
-                 (funcall consumer (* (mem-aref left :float i) *volume-left*))
-                 (funcall consumer (* (mem-aref right :float i) *volume-right*)))
+                 (funcall consumer
+                          (* (mem-aref left :float i) *volume-left*))
+                 (funcall consumer
+                          (* (mem-aref right :float i) *volume-right*)))
             (* 2 result-len))))))
 
 (defun fill-rubberband (rubberband buffer)
   (let ((samples-required (rubberband-get-samples-required rubberband)))
-
-    (funcall *rubberband-required-average* samples-required)
-
     (if (zerop samples-required)
         0
         (with-foreign-objects ((channels :pointer 2)
@@ -106,9 +111,6 @@
   (let ((jack-buffer-l (jack-port-get-buffer *output-port-l* nframes))
         (jack-buffer-r (jack-port-get-buffer *output-port-r* nframes))
         (index 0))
-
-    (funcall *jack-size-average* nframes)
-
     (perform-read-transaction
      *rubberband-jack-buffer*
      (* 2 nframes)
@@ -126,9 +128,6 @@
   (when *client*
     (return-from init))
   
-  (setf *jack-size-average* (make-stream-averager))
-  (setf *rubberband-required-average* (make-stream-averager))
-
   (setf *client* (jack-client-open +jack-client-name+
                                    (null-pointer)
                                    (null-pointer)))
@@ -150,9 +149,11 @@
 
   (setf *sndfile-rubberband-buffer*
         (make-buffer
-         (* 2 +read-buffer-size+)
+         +read-buffer-size+
          (lambda (len consumer)
-           (provide-next-samples *sndfile* len consumer))))
+           (provide-next-samples *sndfile*
+                                 *loop-begin* *loop-end* len
+                                 consumer))))
 
   (setf *rubberband* (make-rubberband))
 
@@ -174,12 +175,13 @@
                         (volume-left 1.0) (volume-right 1.0))
   (unless *client*
     (init))
+  (set-loop begin end)
   (set-speed speed)
   (set-pitch pitch)
   (set-volume-left volume-left)
   (set-volume-right volume-right)
 
-  (setf *sndfile* (sndfile-open filename))
+  (setf *sndfile* (sndfile-open filename begin))
   (when (null-pointer-p *sndfile*)
     (error "Couldn't open soundfile ~S" filename))
   (rubberband-set-time-ratio *rubberband* (coerce speed 'double-float))
@@ -198,11 +200,7 @@
   (when *sndfile-rubberband-buffer*
     (stop-buffer-source-thread *sndfile-rubberband-buffer*))
   (unless (null-pointer-p *sndfile*)
-    (sndfile-close *sndfile*))
-  
-  (format t "jack request size average: ~g~%rubberband required average: ~g~%"
-          (funcall *jack-size-average* nil)
-          (funcall *rubberband-required-average* nil)))
+    (sndfile-close *sndfile*)))
 
 ;;; (play "/home/chb/tmp/batum.wav" :speed 1.2)
-;;; (play "/hdd/home/chb/musicstore/claus/flac/Musik/Rage_Against_The_Machine/Rage_Against_The_Machine/02-Killing_In_The_Name.flac" :pitch 1.1)
+;;; (play "/hdd/home/chb/musicstore/claus/flac/Musik/Rage_Against_The_Machine/Rage_Against_The_Machine/02-Killing_In_The_Name.flac" :pitch 1.1 :begin 44000 :end 200000)

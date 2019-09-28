@@ -22,6 +22,11 @@
   (ptr :pointer)
   (items sf-count-t))
 
+(defcfun "sf_seek" sf-count-t
+  (sndfile :pointer)
+  (frames sf-count-t)
+  (whence :int))
+
 
 (defparameter +default-samplerate+ 44100)
 
@@ -42,7 +47,7 @@
           (foreign-slot-value sf-info '(:struct sf-info) 'sections)
           (foreign-slot-value sf-info '(:struct sf-info) 'seekable)))
 
-(defun sndfile-open (name)
+(defun sndfile-open (name begin-pos)
   (with-foreign-object (sf-info '(:struct sf-info))
     (clear-sf-info sf-info)
     (let ((sndfile (sf-open name (foreign-enum-value 'mode :sfm-read) sf-info)))
@@ -55,15 +60,26 @@
               (foreign-slot-value sf-info '(:struct sf-info) 'seekable)))
         (sndfile-close sndfile)
         (error "soundfile format error"))
+      (sf-seek sndfile begin-pos (foreign-enum-value 'whence :sf-seek-set))
       sndfile)))
 
 (defun sndfile-close (sndfile)
   (sf-close sndfile))
 
-(defun provide-next-samples (sndfile requested-chunk-size callback)
-  (with-foreign-object (buffer :float requested-chunk-size)
-    (let ((actual-chunk-size
-           (sf-read-float sndfile buffer requested-chunk-size)))
-      (loop for i below actual-chunk-size do
-           (funcall callback (mem-aref buffer :float i)))
-      actual-chunk-size)))
+(defun provide-next-samples (sndfile
+                             loop-begin loop-end
+                             requested-items
+                             callback)
+  (let ((pos (sf-seek sndfile 0 (foreign-enum-value 'whence :sf-seek-cur))))
+    (when (and loop-end (>= pos loop-end))
+      (sf-seek sndfile loop-begin (foreign-enum-value 'whence :sf-seek-set))
+      (setf pos loop-begin))
+    (let ((request-size (min requested-items
+                             (if loop-end
+                                 (* 2 (- loop-end pos))
+                                 most-positive-fixnum))))
+      (with-foreign-object (buffer :float request-size)
+        (let ((actual-size (sf-read-float sndfile buffer request-size)))
+          (loop for i below actual-size do
+               (funcall callback (mem-aref buffer :float i)))
+          actual-size)))))

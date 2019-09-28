@@ -7,6 +7,11 @@
 (cenum mode
        ((:sfm-read "SFM_READ")))
 
+(cenum whence
+       ((:sf-seek-set "SF_SEEK_SET"))
+       ((:sf-seek-cur "SF_SEEK_CUR"))
+       ((:sf-seek-end "SF_SEEK_END")))
+
 
 (cstruct sf-info "SF_INFO"
          (frames "frames" :type sf-count-t)
