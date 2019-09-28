@@ -12,6 +12,11 @@
 (defvar *output-port-l* nil)
 (defvar *output-port-r* nil)
 
+(defvar *speed* 1.0d0)
+(defvar *pitch* 1.0d0)
+(defvar *volume-left* 1.0)
+(defvar *volume-right* 1.0)
+
 
 ;;;------------------------------------------------------------------------
 (defun make-sine-generator (frequency &optional sample-rate)
@@ -39,6 +44,20 @@
 
 
 ;;;------------------------------------------------------------------------
+(defun set-speed (speed)
+  (setf *speed* (coerce speed 'double-float)))
+
+(defun set-pitch (pitch)
+  (setf *pitch* (coerce pitch 'double-float)))
+
+(defun set-volume-left (volume)
+  (setf *volume-left* (coerce volume 'single-float)))
+
+(defun set-volume-right (volume)
+  (setf *volume-right* (coerce volume 'single-float)))
+
+
+;;;------------------------------------------------------------------------
 (defun drain-rubberband (rubberband consumer max-len)
   (let* ((avail (rubberband-available rubberband))
          (retrieve (min avail (floor max-len 2))))
@@ -51,8 +70,8 @@
           (setf (mem-aref channels :pointer 1) right)
           (let ((result-len (rubberband-retrieve rubberband channels retrieve)))
             (loop for i below result-len do
-                 (funcall consumer (mem-aref left :float i))
-                 (funcall consumer (mem-aref right :float i)))
+                 (funcall consumer (* (mem-aref left :float i) *volume-left*))
+                 (funcall consumer (* (mem-aref right :float i) *volume-right*)))
             (* 2 result-len))))))
 
 (defun fill-rubberband (rubberband buffer)
@@ -75,6 +94,8 @@
                (incf index)))
             (setf (mem-aref channels :pointer 0) left)
             (setf (mem-aref channels :pointer 1) right)
+            (rubberband-set-time-ratio rubberband *speed*)
+            (rubberband-set-pitch-scale rubberband *pitch*)
             (rubberband-process rubberband channels (floor index 2) 0)
             index)))))
 
@@ -148,9 +169,16 @@
 (defun shutdown ()
   )
 
-(defun play (filename &key (begin 0) (end nil) (gap 0) (speed 1.0) (pitch 1.0))
+(defun play (filename &key (begin 0) (end nil) (gap 0)
+                        (speed 1.0) (pitch 1.0)
+                        (volume-left 1.0) (volume-right 1.0))
   (unless *client*
     (init))
+  (set-speed speed)
+  (set-pitch pitch)
+  (set-volume-left volume-left)
+  (set-volume-right volume-right)
+
   (setf *sndfile* (sndfile-open filename))
   (when (null-pointer-p *sndfile*)
     (error "Couldn't open soundfile ~S" filename))

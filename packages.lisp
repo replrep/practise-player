@@ -55,5 +55,10 @@
 
 (defpackage :practise-player
   (:use :cl :cffi :jack :sndfile :buffer :rubberband)
-  (:export :start
-           :stop))
+  (:export :play
+           :stop
+           :set-speed
+           :set-pitch
+           :set-volume-left
+           :set-volume-right
+           ))
