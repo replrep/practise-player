@@ -14,6 +14,7 @@
 
 (defvar *loop-begin* 0)
 (defvar *loop-end* nil)
+(defvar *gap* 0)
 (defvar *speed* 1.0d0)
 (defvar *pitch* 1.0d0)
 (defvar *volume-left* 1.0)
@@ -44,11 +45,12 @@
 
 
 ;;;------------------------------------------------------------------------
-(defun set-loop (begin end)
+(defun set-loop (begin end &optional gap)
   (when (< (- end begin) 1000)
     (error "loop too short"))
   (setf *loop-begin* begin)
-  (setf *loop-end* end))
+  (setf *loop-end* end)
+  (setf *gap* (or gap 0)))
 
 (defun set-speed (speed)
   (setf *speed* (coerce speed 'double-float)))
@@ -152,8 +154,8 @@
          +read-buffer-size+
          (lambda (len consumer)
            (provide-next-samples *sndfile*
-                                 *loop-begin* *loop-end* len
-                                 consumer))))
+                                 *loop-begin* *loop-end* *gap*
+                                 len consumer))))
 
   (setf *rubberband* (make-rubberband))
 
@@ -175,7 +177,7 @@
                         (volume-left 1.0) (volume-right 1.0))
   (unless *client*
     (init))
-  (set-loop begin end)
+  (set-loop begin end gap)
   (set-speed speed)
   (set-pitch pitch)
   (set-volume-left volume-left)

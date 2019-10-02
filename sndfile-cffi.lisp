@@ -66,14 +66,17 @@
 (defun sndfile-close (sndfile)
   (sf-close sndfile))
 
+(let ((current-gap 0))
 (defun provide-next-samples (sndfile
-                             loop-begin loop-end
+                             loop-begin loop-end gap
                              requested-items
                              callback)
   (let ((pos (sf-seek sndfile 0 (foreign-enum-value 'whence :sf-seek-cur))))
     (when (and loop-end (>= pos loop-end))
       (sf-seek sndfile loop-begin (foreign-enum-value 'whence :sf-seek-set))
-      (setf pos loop-begin))
+      (setf pos loop-begin)
+      (setf current-gap gap))
+    ;; TODO: actually do something with the gap here...
     (let ((request-size (min requested-items
                              (if loop-end
                                  (* 2 (- loop-end pos))
@@ -82,4 +85,4 @@
         (let ((actual-size (sf-read-float sndfile buffer request-size)))
           (loop for i below actual-size do
                (funcall callback (mem-aref buffer :float i)))
-          actual-size)))))
+          actual-size))))))
