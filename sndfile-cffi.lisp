@@ -66,14 +66,23 @@
 (defun sndfile-close (sndfile)
   (sf-close sndfile))
 
+(defun get-frame-position (sndfile)
+  (sf-seek sndfile 0 (foreign-enum-value 'whence :sf-seek-cur)))
+
+(defun goto-frame-abs (sndfile frame)
+  (sf-seek sndfile frame (foreign-enum-value 'whence :sf-seek-set)))
+
+(defun goto-frame-rel (sndfile frame-offset)
+  (sf-seek sndfile frame-offset (foreign-enum-value 'whence :sf-seek-cur)))
+
 (let ((current-gap 0))
 (defun provide-next-samples (sndfile
                              loop-begin loop-end gap
                              requested-items
                              callback)
-  (let ((pos (sf-seek sndfile 0 (foreign-enum-value 'whence :sf-seek-cur))))
+  (let ((pos (get-frame-position sndfile)))
     (when (and loop-end (>= pos loop-end))
-      (sf-seek sndfile loop-begin (foreign-enum-value 'whence :sf-seek-set))
+      (goto-frame-abs sndfile loop-begin)
       (setf pos loop-begin)
       (setf current-gap gap))
     ;; TODO: actually do something with the gap here...
