@@ -29,7 +29,10 @@
   (:export
    :sndfile-open
    :sndfile-close
-   :provide-next-samples
+   :get-frame-position
+   :goto-frame-abs
+   :goto-frame-rel
+   :read-items
    ))
 
 (defpackage :rubberband

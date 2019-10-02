@@ -12,13 +12,21 @@
 (defvar *output-port-l* nil)
 (defvar *output-port-r* nil)
 
+;;; written by ui thread / read by sndfile read thread
+(defvar *cmd-goto-abs* nil)
+(defvar *cmd-goto-rel* nil)
 (defvar *loop-begin* 0)
 (defvar *loop-end* nil)
 (defvar *gap* 0)
+
+;;; written by ui thread / read by rubberband read thread
 (defvar *speed* 1.0d0)
 (defvar *pitch* 1.0d0)
 (defvar *volume-left* 1.0)
 (defvar *volume-right* 1.0)
+
+;;; written by sndfile read thread, read by ui thread
+(defvar *current-frame-position* nil)
 
 
 ;;;------------------------------------------------------------------------
@@ -63,6 +71,15 @@
 
 (defun set-volume-right (volume)
   (setf *volume-right* (coerce volume 'single-float)))
+
+(defun goto-abs (frame)
+  (setf *cmd-goto-abs* frame))
+
+(defun goto-rel (offset)
+  (setf *cmd-goto-rel* offset))
+
+(defun get-position ()
+  *current-frame-position*)
 
 
 ;;;------------------------------------------------------------------------
@@ -126,6 +143,37 @@
          (setf (mem-aref jack-buffer-r :float i) 0.0)))
   0)
 
+(let ((remaining-gap 0))
+(defun sndfile-handler (len consumer)
+  (when *cmd-goto-abs*
+    (goto-frame-abs *sndfile* *cmd-goto-abs*)
+    (setf *cmd-goto-abs* nil))
+  (when *cmd-goto-rel*
+    (goto-frame-rel *sndfile* *cmd-goto-rel*)
+    (setf *cmd-goto-rel* nil))
+  (setf *current-frame-position* (get-frame-position *sndfile*))
+  (when (and *loop-end*
+             (>= *current-frame-position* *loop-end*))
+      (goto-frame-abs *sndfile* *loop-begin*)
+      (setf *current-frame-position* *loop-begin*)
+      (setf remaining-gap *gap*))
+  ;; TODO: actually do something with the gap here...
+  (prog1
+      (read-items *sndfile*
+                  (min len
+                       (if *loop-end*
+                           (* 2 (- *loop-end* *current-frame-position*))
+                           most-positive-fixnum))
+                  consumer)
+    (setf *current-frame-position* (get-frame-position *sndfile*)))))
+
+(defun rubberband-handler (len consumer)
+  (let ((count (drain-rubberband *rubberband* consumer len)))
+    (if (plusp count)
+        count
+        (fill-rubberband *rubberband*
+                         *sndfile-rubberband-buffer*))))
+
 (defun init ()
   (when *client*
     (return-from init))
@@ -150,24 +198,12 @@
   (jack-set-process-callback *client* (callback jack-callback) (null-pointer))
 
   (setf *sndfile-rubberband-buffer*
-        (make-buffer
-         +read-buffer-size+
-         (lambda (len consumer)
-           (provide-next-samples *sndfile*
-                                 *loop-begin* *loop-end* *gap*
-                                 len consumer))))
+        (make-buffer +read-buffer-size+ #'sndfile-handler))
 
   (setf *rubberband* (make-rubberband))
 
   (setf *rubberband-jack-buffer*
-        (make-buffer
-         +read-buffer-size+
-         (lambda (len consumer)
-           (let ((count (drain-rubberband *rubberband* consumer len)))
-             (if (plusp count)
-                 count
-                 (fill-rubberband *rubberband*
-                                  *sndfile-rubberband-buffer*)))))))
+        (make-buffer +read-buffer-size+ #'rubberband-handler)))
 
 (defun shutdown ()
   )

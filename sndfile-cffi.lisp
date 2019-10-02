@@ -75,23 +75,10 @@
 (defun goto-frame-rel (sndfile frame-offset)
   (sf-seek sndfile frame-offset (foreign-enum-value 'whence :sf-seek-cur)))
 
-(let ((current-gap 0))
-(defun provide-next-samples (sndfile
-                             loop-begin loop-end gap
-                             requested-items
-                             callback)
-  (let ((pos (get-frame-position sndfile)))
-    (when (and loop-end (>= pos loop-end))
-      (goto-frame-abs sndfile loop-begin)
-      (setf pos loop-begin)
-      (setf current-gap gap))
-    ;; TODO: actually do something with the gap here...
-    (let ((request-size (min requested-items
-                             (if loop-end
-                                 (* 2 (- loop-end pos))
-                                 most-positive-fixnum))))
-      (with-foreign-object (buffer :float request-size)
-        (let ((actual-size (sf-read-float sndfile buffer request-size)))
-          (loop for i below actual-size do
-               (funcall callback (mem-aref buffer :float i)))
-          actual-size))))))
+(defun read-items (sndfile len consumer)
+  (with-foreign-object (buffer :float len)
+    (let ((actual-item-count (sf-read-float sndfile buffer len)))
+      (loop for i below actual-item-count do
+           (funcall consumer (mem-aref buffer :float i)))
+      actual-item-count)))
+
