@@ -124,15 +124,16 @@
             index)))))
 
 (defcallback jack-callback :int ((nframes jack-nframes) (arg :pointer))
-  (declare (ignore arg)
-           ;; (optimize (speed 3))
-           )
+  (declare  (fixnum nframes)
+            (ignore arg)
+            (optimize (speed 3)))
   (let ((jack-buffer-l (jack-port-get-buffer *output-port-l* nframes))
         (jack-buffer-r (jack-port-get-buffer *output-port-r* nframes))
         (index 0))
+    (declare (fixnum index))
     (perform-read-transaction
      *rubberband-jack-buffer*
-     (* 2 nframes)
+     (the fixnum (* 2 nframes))
      (lambda (val)
        (if (evenp index)
            (setf (mem-aref jack-buffer-l :float (floor index 2)) val)
