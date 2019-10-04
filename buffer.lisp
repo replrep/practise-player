@@ -40,7 +40,7 @@
           ((minusp avail) (+ avail (buffer-size buffer)))
           (t avail)))))
 
-(defun perform-read-transaction (buffer len callback)
+(defun read-chunk (buffer len callback)
   (declare  (fixnum len)
             (function callback)
             (optimize (speed 3)))
@@ -49,9 +49,9 @@
          (size (buffer-size buffer))
          (deliver (min len (the fixnum (buffer-read-avail buffer)))))
     (declare (fixnum read-index size deliver)
-             ((vector single-float) data))
+             (simple-vector data))
     (loop for i below deliver do
-         (funcall callback (aref data read-index))
+         (funcall callback (svref data read-index))
          (setf read-index (mod (1+ read-index) size)))
     (setf (buffer-read-index buffer) read-index)
     (condition-notify (buffer-condition-var buffer))
@@ -71,7 +71,7 @@
                   (loop while (plusp (buffer-write-avail buffer)) do
                        (let* ((write-index (buffer-write-index buffer))
                               (setter (lambda (value)
-                                        (setf (aref data write-index) value)
+                                        (setf (svref data write-index) value)
                                         (setf write-index (mod (1+ write-index)
                                                                size)))))
                          (when (zerop

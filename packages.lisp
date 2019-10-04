@@ -51,7 +51,7 @@
 (defpackage :buffer
   (:use :cl :bordeaux-threads)
   (:export :make-buffer
-           :perform-read-transaction
+           :read-chunk
            :run-buffer-source-thread
            :stop-buffer-source-thread
            ))

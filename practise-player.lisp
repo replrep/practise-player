@@ -109,7 +109,7 @@
                                (left :float samples-required)
                                (right :float samples-required))
           (let ((index 0))
-            (perform-read-transaction
+            (read-chunk
              buffer (* 2 samples-required)
              (lambda (val)
                (if (evenp index)
@@ -131,7 +131,7 @@
         (jack-buffer-r (jack-port-get-buffer *output-port-r* nframes))
         (index 0))
     (declare (fixnum index))
-    (perform-read-transaction
+    (read-chunk
      *rubberband-jack-buffer*
      (the fixnum (* 2 nframes))
      (lambda (val)
