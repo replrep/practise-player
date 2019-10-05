@@ -1,6 +1,7 @@
 (in-package :practise-player)
 
 
+(defparameter +sample-rate+ 44100)
 (defparameter +read-buffer-size+ 8192)
 (defparameter +jack-client-name+ "practise-player")
 
@@ -50,6 +51,19 @@
           (prog1
               (setq avg (/ (+ (* avg n) x) (+ n 1)))
             (incf n))))))
+
+
+;;;------------------------------------------------------------------------
+(defun pos-from-frames (frames)
+  (multiple-value-bind (hours frames-sans-hours)
+      (floor frames (* +sample-rate+ 60 60))
+    (multiple-value-bind (minutes frames-sans-minutes)
+        (floor frames-sans-hours (* +sample-rate+ 60))
+      (multiple-value-bind (seconds frames-sans-seconds)
+          (floor frames-sans-minutes +sample-rate+)
+        (format nil "~2,'0D:~2,'0D:~2,'0D.~3,'0D"
+                hours minutes seconds
+                (floor (* 1000 frames-sans-seconds (/ 1 +sample-rate+))))))))
 
 
 ;;;------------------------------------------------------------------------
