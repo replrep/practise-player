@@ -89,5 +89,5 @@
 (defun stop-buffer-source-thread (buffer)
   (setf (buffer-thread-keep-running buffer) nil)
   (condition-notify (buffer-condition-var buffer))
-  (when (buffer-thread buffer)
+  (when (and (buffer-thread buffer) (thread-alive-p (buffer-thread buffer)))
     (join-thread (buffer-thread buffer))))

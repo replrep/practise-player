@@ -54,7 +54,7 @@
 
 ;;;------------------------------------------------------------------------
 (defun set-loop (begin end &optional gap)
-  (when (< (- end begin) 1000)
+  (when (and end (< (- end begin) 1000))
     (error "loop too short"))
   (setf *loop-begin* begin)
   (setf *loop-end* end)
@@ -230,7 +230,7 @@
   (jack-activate *client*))
 
 (defun stop ()
-  (unless (null-pointer-p *client*)
+  (unless (or (null *client*) (null-pointer-p *client*))
     (jack-deactivate *client*)
     (jack-client-close *client*)
     (setf *client* nil))
@@ -238,8 +238,9 @@
     (stop-buffer-source-thread *rubberband-jack-buffer*))
   (when *sndfile-rubberband-buffer*
     (stop-buffer-source-thread *sndfile-rubberband-buffer*))
-  (unless (null-pointer-p *sndfile*)
-    (sndfile-close *sndfile*)))
+  (unless (or (null *sndfile*) (null-pointer-p *sndfile*))
+    (sndfile-close *sndfile*))
+  (values))
 
 ;;; (play "/home/chb/tmp/batum.wav" :speed 1.2)
 ;;; (play "/hdd/home/chb/musicstore/claus/flac/Musik/Rage_Against_The_Machine/Rage_Against_The_Machine/02-Killing_In_The_Name.flac" :pitch 1.1 :begin 44000 :end 200000)
