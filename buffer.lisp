@@ -6,9 +6,9 @@
 (defstruct (buffer (:constructor %make-buffer))
   lock
   condition-var
-  (read-index 0)
-  (write-index 0)
-  size
+  (read-index 0 :type fixnum)
+  (write-index 0 :type fixnum)
+  (size 0 :type fixnum)
   data
   source-callback
   thread
@@ -25,19 +25,23 @@
     buffer))
 
 (defun buffer-read-avail (buffer)
+  (declare (optimize (speed 3)))
   (let ((avail (- (buffer-write-index buffer)
                   (buffer-read-index buffer))))
+    (declare (fixnum avail))
     (if
-      (minusp avail) (+ avail (buffer-size buffer))
+      (minusp avail) (the fixnum (+ avail (buffer-size buffer)))
       avail)))
 
 (defun buffer-write-avail (buffer)
-  (1- (let ((avail (- (buffer-read-index buffer)
-                      (buffer-write-index buffer))))
-        (cond
-          ((zerop avail) (buffer-size buffer))
-          ((minusp avail) (+ avail (buffer-size buffer)))
-          (t avail)))))
+  (declare (optimize (speed 3)))
+  (1- (the fixnum (let ((avail (- (buffer-read-index buffer)
+                                  (buffer-write-index buffer))))
+                    (declare (fixnum avail))
+                    (cond
+                      ((zerop avail) (buffer-size buffer))
+                      ((minusp avail) (+ avail (buffer-size buffer)))
+                      (t avail))))))
 
 (defun read-chunk (buffer len callback)
   (declare  (fixnum len)
