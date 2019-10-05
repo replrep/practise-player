@@ -58,25 +58,32 @@
     (error "loop too short"))
   (setf *loop-begin* begin)
   (setf *loop-end* end)
-  (setf *gap* (or gap 0)))
+  (setf *gap* (or gap 0))
+  (values))
 
 (defun set-speed (speed)
-  (setf *speed* (coerce speed 'double-float)))
+  (setf *speed* (coerce speed 'double-float))
+  (values))
 
 (defun set-pitch (pitch)
-  (setf *pitch* (coerce pitch 'double-float)))
+  (setf *pitch* (coerce pitch 'double-float))
+  (values))
 
 (defun set-volume-left (volume)
-  (setf *volume-left* (coerce volume 'single-float)))
+  (setf *volume-left* (coerce volume 'single-float))
+  (values))
 
 (defun set-volume-right (volume)
-  (setf *volume-right* (coerce volume 'single-float)))
+  (setf *volume-right* (coerce volume 'single-float))
+  (values))
 
 (defun goto-abs (frame)
-  (setf *cmd-goto-abs* frame))
+  (setf *cmd-goto-abs* frame)
+  (values))
 
 (defun goto-rel (offset)
-  (setf *cmd-goto-rel* offset))
+  (setf *cmd-goto-rel* offset)
+  (values))
 
 (defun get-position ()
   *current-frame-position*)
@@ -227,7 +234,8 @@
   (rubberband-set-pitch-scale *rubberband* (coerce pitch 'double-float))
   (run-buffer-source-thread *sndfile-rubberband-buffer*)
   (run-buffer-source-thread *rubberband-jack-buffer*)
-  (jack-activate *client*))
+  (jack-activate *client*)
+  (values))
 
 (defun stop ()
   (unless (or (null *client*) (null-pointer-p *client*))
