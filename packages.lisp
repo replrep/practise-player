@@ -29,6 +29,7 @@
   (:export
    :sndfile-open
    :sndfile-close
+   :get-end-frame-position
    :get-frame-position
    :goto-frame-abs
    :goto-frame-rel
@@ -57,11 +58,18 @@
            ))
 
 (defpackage :practise-player
-  (:use :cl :cffi :jack :sndfile :buffer :rubberband)
-  (:export :play
+  (:use :cl :cffi :bordeaux-threads
+        :jack :sndfile :buffer :rubberband)
+  (:export :+sample-rate+
+           :play
            :stop
            :set-speed
            :set-pitch
            :set-volume-left
            :set-volume-right
            ))
+
+(defpackage :practise-player-cli
+  (:use :cl :bordeaux-threads :cl-ppcre
+        :practise-player)
+  (:export :run))

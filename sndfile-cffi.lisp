@@ -47,7 +47,7 @@
           (foreign-slot-value sf-info '(:struct sf-info) 'sections)
           (foreign-slot-value sf-info '(:struct sf-info) 'seekable)))
 
-(defun sndfile-open (name begin-pos)
+(defun sndfile-open (name)
   (with-foreign-object (sf-info '(:struct sf-info))
     (clear-sf-info sf-info)
     (let ((sndfile (sf-open name (foreign-enum-value 'mode :sfm-read) sf-info)))
@@ -60,11 +60,13 @@
               (foreign-slot-value sf-info '(:struct sf-info) 'seekable)))
         (sndfile-close sndfile)
         (error "soundfile format error"))
-      (sf-seek sndfile begin-pos (foreign-enum-value 'whence :sf-seek-set))
       sndfile)))
 
 (defun sndfile-close (sndfile)
   (sf-close sndfile))
+
+(defun get-end-frame-position (sndfile)
+  (sf-seek sndfile 0 (foreign-enum-value 'whence :sf-seek-end)))
 
 (defun get-frame-position (sndfile)
   (sf-seek sndfile 0 (foreign-enum-value 'whence :sf-seek-cur)))

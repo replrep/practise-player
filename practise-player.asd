@@ -15,7 +15,7 @@
   :version (:read-file-form "version.txt")
   :perform (load-op :after (op system)
                     (pushnew :practise-player *features*))
-  :depends-on (:cffi :bordeaux-threads)
+  :depends-on (:cffi :bordeaux-threads :unix-opts :cl-ppcre)
   :serial t
   :components ((:file "packages")
                (cffi-grovel:grovel-file "jack-grovel")
@@ -24,5 +24,7 @@
                (:file "sndfile-cffi")
                (cffi-grovel:grovel-file "rubberband-grovel")
                (:file "rubberband-cffi")
+
                (:file "buffer")
-               (:file "practise-player")))
+               (:file "practise-player")
+               (:file "practise-player-cli")))

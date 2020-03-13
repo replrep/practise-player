@@ -139,7 +139,7 @@
                (incf index)))
             (setf (mem-aref channels :pointer 0) left)
             (setf (mem-aref channels :pointer 1) right)
-            (rubberband-set-time-ratio rubberband *speed*)
+            (rubberband-set-time-ratio rubberband (- 2.0d0 *speed*))
             (rubberband-set-pitch-scale rubberband *pitch*)
             (rubberband-process rubberband channels (floor index 2) 0)
             index)))))
@@ -227,29 +227,33 @@
   (setf *rubberband-jack-buffer*
         (make-buffer +read-buffer-size+ #'rubberband-handler)))
 
-(defun shutdown ()
-  )
-
 (defun play (filename &key (begin 0) (end nil) (gap 0)
                         (speed 1.0) (pitch 1.0)
                         (volume-left 1.0) (volume-right 1.0))
   (unless *client*
     (init))
-  (set-loop begin end gap)
+
+  (setf *sndfile* (sndfile-open filename))
+  (when (null-pointer-p *sndfile*)
+    (error "Couldn't open soundfile ~S" filename))
+
+  (set-loop begin
+            (or end (get-end-frame-position *sndfile*))
+            gap)
   (set-speed speed)
   (set-pitch pitch)
   (set-volume-left volume-left)
   (set-volume-right volume-right)
 
-  (setf *sndfile* (sndfile-open filename begin))
-  (when (null-pointer-p *sndfile*)
-    (error "Couldn't open soundfile ~S" filename))
+  (goto-frame-abs *sndfile* begin)
+
   (rubberband-set-time-ratio *rubberband* (coerce speed 'double-float))
   (rubberband-set-pitch-scale *rubberband* (coerce pitch 'double-float))
   (run-buffer-source-thread *sndfile-rubberband-buffer*)
   (run-buffer-source-thread *rubberband-jack-buffer*)
   (jack-activate *client*)
-  (values))
+
+  (make-condition-variable))
 
 (defun stop ()
   (unless (or (null *client*) (null-pointer-p *client*))
@@ -263,6 +267,3 @@
   (unless (or (null *sndfile*) (null-pointer-p *sndfile*))
     (sndfile-close *sndfile*))
   (values))
-
-;;; (play "/home/chb/tmp/batum.wav" :speed 1.2)
-;;; (play "/hdd/home/chb/musicstore/claus/flac/Musik/Rage_Against_The_Machine/Rage_Against_The_Machine/02-Killing_In_The_Name.flac" :pitch 1.1 :begin 44000 :end 200000)
