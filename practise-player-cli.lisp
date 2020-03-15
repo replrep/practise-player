@@ -68,14 +68,20 @@
          :long "volume-right"
          :arg-parser #'parse-percent))
 
+(defparameter +halftone-up-factor+ 1.059463094352953d0)
+(defparameter +halftone-down-factor+ 0.9438743126816935d0)
+
 (defun run ()
-  (multiple-value-bind (options free-args)
-      (unix-opts:get-opts)
+  (multiple-value-bind (options free-args) (unix-opts:get-opts)
     (let ((lock (make-lock)))
       (with-lock-held (lock)
         (condition-wait
          (play (first free-args)
                :begin (or (getf options :begin) 0)
                :end (or (getf options :end) nil)
-               :speed (or (getf options :speed) 1.0))
+               :speed (or (getf options :speed) 1.0)
+               :pitch (let ((pitch (or (getf options :pitch) 0.0)))
+                        (if (plusp pitch)
+                            (expt +halftone-up-factor+ pitch)
+                            (expt +halftone-down-factor+ (- pitch)))))
          lock)))))
