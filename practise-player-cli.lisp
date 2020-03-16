@@ -1,6 +1,6 @@
 (in-package :practise-player-cli)
 
-(defun parse-time (str)
+(defun parse-time-value (str)
   (flet ((calc-frame (frac-with-dot second &optional minute hour)
            (let ((frac
                   (if frac-with-dot
@@ -29,59 +29,80 @@
        ("(\\d+)(\\.\\d\\d?\\d?)?" str)
      (calc-frame frac second)))))
 
-(defun parse-percent (str)
+(defun parse-percent-value (str)
   (coerce
    (/ (parse-integer str) 100.0)
    'double-float))
 
-(unix-opts:define-opts
-  (:name :begin
-         :short #\b
-         :long "begin"
-         :arg-parser #'parse-time)
-  (:name :end
-         :short #\e
-         :long "end"
-         :arg-parser #'parse-time)
-  (:name :gap
-         :short #\g
-         :long "gap"
-         :arg-parser #'parse-time)
-  (:name :speed
-         :short #\s
-         :long "speed"
-         :arg-parser #'parse-percent)
-  (:name :pitch
-         :short #\p
-         :long "pitch"
-         :arg-parser #'parse-integer)
-  (:name :tune
-         :short #\t
-         :long "tune"
-         :arg-parser #'parse-integer)
-  (:name :volume-left
-         :short #\l
-         :long "volume-left"
-         :arg-parser #'parse-percent)
-  (:name :volume-right
-         :short #\r
-         :long "volume-right"
-         :arg-parser #'parse-percent))
+(defun parse-option-and-value (argv)
+  (let* ((arg (first argv))
+         (results
+          (or
+           (register-groups-bind (option value)
+               ("^--([^=]+)=(.*)" arg)
+             (list option value (cdr argv)))
+           (register-groups-bind (option)
+               ("^--(.*)" arg)
+             (list option (cadr argv) (cddr argv)))
+           (register-groups-bind (option value)
+               ("^-(.)(.+)" arg)
+             (list option value (cdr argv)))
+           (register-groups-bind (option)
+               ("^-(.)" arg)
+             (list option (cadr argv) (cddr argv)))
+           (list nil arg (cdr argv)))))
+    (values-list results)))
+
 
 (defparameter +halftone-up-factor+ 1.059463094352953d0)
 (defparameter +halftone-down-factor+ 0.9438743126816935d0)
 
 (defun run ()
-  (multiple-value-bind (options free-args) (unix-opts:get-opts)
+  (let ((begin 0)
+        (end nil)
+        (gap 0)
+        (speed 1.0)
+        (pitch 0)
+        (tune 0)
+        (volume-left 1.0)
+        (volume-right 1.0)
+        (file-name "")
+        (argv (uiop:command-line-arguments)))
+    (loop while argv do
+         (multiple-value-bind (option value new-argv)
+             (parse-option-and-value argv)
+           (cond
+             ((or (string= "b" option) (string= "begin" option))
+              (setf begin (parse-time-value value)))
+             ((or (string= "e" option) (string= "end" option))
+              (setf end (parse-time-value value)))
+             ((or (string= "g" option) (string= "gap" option))
+              (setf gap (parse-time-value value)))
+             ((or (string= "s" option) (string= "speed" option))
+              (setf speed (parse-percent-value value)))
+             ((or (string= "p" option) (string= "pitch" option))
+              (setf pitch (parse-integer value)))
+             ((or (string= "t" option) (string= "tune" option))
+              (setf tune (parse-integer value)))
+             ((or (string= "l" option) (string= "volume-left" option))
+              (setf volume-left (parse-percent-value value)))
+             ((or (string= "r" option) (string= "volume-right" option))
+              (setf volume-right (parse-percent-value value)))
+             ((null option)
+              (setf file-name value))
+             (t
+              (error "unknown option ~S" option)))
+           (setf argv new-argv)))
+
     (let ((lock (make-lock)))
       (with-lock-held (lock)
         (condition-wait
-         (play (first free-args)
-               :begin (or (getf options :begin) 0)
-               :end (or (getf options :end) nil)
-               :speed (or (getf options :speed) 1.0)
-               :pitch (let ((pitch (or (getf options :pitch) 0.0)))
-                        (if (plusp pitch)
-                            (expt +halftone-up-factor+ pitch)
-                            (expt +halftone-down-factor+ (- pitch)))))
+         (play file-name
+               :begin begin :end end :gap gap
+               :speed speed
+               :pitch (if (plusp pitch)
+                          (expt +halftone-up-factor+ pitch)
+                          (expt +halftone-down-factor+ (- pitch)))
+               :volume-left volume-left
+               :volume-right volume-right)
          lock)))))

@@ -15,7 +15,7 @@
   :version (:read-file-form "version.txt")
   :perform (load-op :after (op system)
                     (pushnew :practise-player *features*))
-  :depends-on (:cffi :bordeaux-threads :unix-opts :cl-ppcre)
+  :depends-on (:uiop :cffi :bordeaux-threads :cl-ppcre)
   :serial t
   :components ((:file "packages")
                (cffi-grovel:grovel-file "jack-grovel")
