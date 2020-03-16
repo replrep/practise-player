@@ -55,7 +55,9 @@
 
 
 (defparameter +halftone-up-factor+ 1.059463094352953d0)
+(defparameter +cent-up-factor+ (expt +halftone-up-factor+ (/ 1 50.0d0)))
 (defparameter +halftone-down-factor+ 0.9438743126816935d0)
+(defparameter +cent-down-factor+ (expt +halftone-down-factor+ (/ 1 50.0d0)))
 
 (defun run ()
   (let ((begin 0)
@@ -94,15 +96,19 @@
               (error "unknown option ~S" option)))
            (setf argv new-argv)))
 
-    (let ((lock (make-lock)))
+    (let ((effective-pitch (* (if (plusp pitch)
+                                  (expt +halftone-up-factor+ pitch)
+                                  (expt +halftone-down-factor+ (- pitch)))
+                              (if (plusp tune)
+                                  (expt +cent-up-factor+ tune)
+                                  (expt +cent-down-factor+ (- tune)))))
+          (lock (make-lock)))
       (with-lock-held (lock)
         (condition-wait
          (play file-name
                :begin begin :end end :gap gap
                :speed speed
-               :pitch (if (plusp pitch)
-                          (expt +halftone-up-factor+ pitch)
-                          (expt +halftone-down-factor+ (- pitch)))
+               :pitch effective-pitch
                :volume-left volume-left
                :volume-right volume-right)
          lock)))))
