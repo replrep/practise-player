@@ -77,10 +77,9 @@
 (defun goto-frame-rel (sndfile frame-offset)
   (sf-seek sndfile frame-offset (foreign-enum-value 'whence :sf-seek-cur)))
 
-(defun read-items (sndfile len consumer)
-  (with-foreign-object (buffer :float len)
-    (let ((actual-item-count (sf-read-float sndfile buffer len)))
+(defun read-items (sndfile nitems item-consumer)
+  (with-foreign-object (buffer :float nitems)
+    (let ((actual-item-count (sf-read-float sndfile buffer nitems)))
       (loop for i below actual-item-count do
-           (funcall consumer (mem-aref buffer :float i)))
+           (funcall item-consumer (mem-aref buffer :float i)))
       actual-item-count)))
-

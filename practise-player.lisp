@@ -104,9 +104,9 @@
 
 
 ;;;------------------------------------------------------------------------
-(defun drain-rubberband (rubberband consumer max-len)
-  (let* ((avail (rubberband-available rubberband))
-         (retrieve (min avail (floor max-len 2))))
+(defun drain-rubberband (rubberband item-consumer nitems)
+  (let* ((frames-available (rubberband-available rubberband))
+         (retrieve (min frames-available (floor nitems 2))))
     (if (zerop retrieve)
         0
         (with-foreign-objects ((channels :pointer 2)
@@ -114,24 +114,25 @@
                                (right :float retrieve))
           (setf (mem-aref channels :pointer 0) left)
           (setf (mem-aref channels :pointer 1) right)
-          (let ((result-len (rubberband-retrieve rubberband channels retrieve)))
-            (loop for i below result-len do
-                 (funcall consumer
+          (let ((result-frames
+                 (rubberband-retrieve rubberband channels retrieve)))
+            (loop for i below result-frames do
+                 (funcall item-consumer
                           (* (mem-aref left :float i) *volume-left*))
-                 (funcall consumer
+                 (funcall item-consumer
                           (* (mem-aref right :float i) *volume-right*)))
-            (* 2 result-len))))))
+            (* 2 result-frames))))))
 
 (defun fill-rubberband (rubberband buffer)
-  (let ((samples-required (rubberband-get-samples-required rubberband)))
-    (if (zerop samples-required)
+  (let ((frames-required (rubberband-get-samples-required rubberband)))
+    (if (zerop frames-required)
         0
         (with-foreign-objects ((channels :pointer 2)
-                               (left :float samples-required)
-                               (right :float samples-required))
+                               (left :float frames-required)
+                               (right :float frames-required))
           (let ((index 0))
             (read-chunk
-             buffer (* 2 samples-required)
+             buffer (* 2 frames-required)
              (lambda (val)
                (if (evenp index)
                    (setf (mem-aref left :float (floor index 2)) val)
@@ -166,7 +167,7 @@
   0)
 
 (let ((remaining-gap 0))
-(defun sndfile-handler (nitems consumer)
+(defun sndfile-handler (nitems item-consumer)
   (when *cmd-goto-abs*
     (goto-frame-abs *sndfile* *cmd-goto-abs*)
     (setf *cmd-goto-abs* nil))
@@ -182,7 +183,7 @@
   (if (plusp remaining-gap)
       (let ((actual-item-count (min nitems (* 2 remaining-gap))))
         (loop repeat actual-item-count do
-             (funcall consumer 0.0))
+             (funcall item-consumer 0.0))
         (decf remaining-gap (floor actual-item-count 2))
         actual-item-count)
       (prog1
@@ -191,15 +192,14 @@
                            (if *loop-end*
                                (* 2 (- *loop-end* *current-frame-position*))
                                most-positive-fixnum))
-                      consumer)
+                      item-consumer)
         (setf *current-frame-position* (get-frame-position *sndfile*))))))
 
-(defun rubberband-handler (len consumer)
-  (let ((count (drain-rubberband *rubberband* consumer len)))
+(defun rubberband-handler (nitems item-consumer)
+  (let ((count (drain-rubberband *rubberband* item-consumer nitems)))
     (if (plusp count)
         count
-        (fill-rubberband *rubberband*
-                         *sndfile-rubberband-buffer*))))
+        (fill-rubberband *rubberband* *sndfile-rubberband-buffer*))))
 
 (defun init ()
   (when *client*
