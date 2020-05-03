@@ -166,7 +166,7 @@
   0)
 
 (let ((remaining-gap 0))
-(defun sndfile-handler (len consumer)
+(defun sndfile-handler (nitems consumer)
   (when *cmd-goto-abs*
     (goto-frame-abs *sndfile* *cmd-goto-abs*)
     (setf *cmd-goto-abs* nil))
@@ -179,15 +179,20 @@
       (goto-frame-abs *sndfile* *loop-begin*)
       (setf *current-frame-position* *loop-begin*)
       (setf remaining-gap *gap*))
-  ;; TODO: actually do something with the gap here...
-  (prog1
-      (read-items *sndfile*
-                  (min len
-                       (if *loop-end*
-                           (* 2 (- *loop-end* *current-frame-position*))
-                           most-positive-fixnum))
-                  consumer)
-    (setf *current-frame-position* (get-frame-position *sndfile*)))))
+  (if (plusp remaining-gap)
+      (let ((actual-item-count (min nitems (* 2 remaining-gap))))
+        (loop repeat actual-item-count do
+             (funcall consumer 0.0))
+        (decf remaining-gap (floor actual-item-count 2))
+        actual-item-count)
+      (prog1
+          (read-items *sndfile*
+                      (min nitems
+                           (if *loop-end*
+                               (* 2 (- *loop-end* *current-frame-position*))
+                               most-positive-fixnum))
+                      consumer)
+        (setf *current-frame-position* (get-frame-position *sndfile*))))))
 
 (defun rubberband-handler (len consumer)
   (let ((count (drain-rubberband *rubberband* consumer len)))
