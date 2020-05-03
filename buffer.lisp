@@ -12,8 +12,7 @@
   data
   source-callback
   thread
-  thread-keep-running
-  )
+  thread-keep-running)
 
 (defun make-buffer (size source-callback)
   (let ((buffer (%make-buffer)))
