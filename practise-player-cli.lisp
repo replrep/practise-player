@@ -1,5 +1,8 @@
 (in-package :practise-player-cli)
 
+(defparameter +converter-binary+ "sox")
+
+
 (defun parse-time-value (str)
   (flet ((calc-frame (frac-with-dot second &optional minute hour)
            (let ((frac
@@ -53,6 +56,24 @@
            (list nil arg (cdr argv)))))
     (values-list results)))
 
+(defun maybe-convert-soundfile (file-name)
+  (multiple-value-bind (type path-components file-with-extension flag)
+      (uiop:split-unix-namestring-directory-components file-name)
+    (declare (ignore type path-components flag))
+    (multiple-value-bind (file extension)
+        (uiop:split-name-type file-with-extension)
+      (if (or (string-equal extension "wav")
+              (string-equal extension "flac"))
+          file-name
+          (let* ((tmp-pathname (make-pathname :directory '(:absolute "tmp")
+                                              :name file
+                                              :type "flac"))
+                 (tmp-file-name (namestring tmp-pathname)))
+            (unless (probe-file tmp-pathname)
+              (uiop:run-program
+               (list +converter-binary+ file-name tmp-file-name)))
+            tmp-file-name)))))
+
 
 (defparameter +halftone-up-factor+ 1.059463094352953d0)
 (defparameter +cent-up-factor+ (expt +halftone-up-factor+ (/ 1 50.0d0)))
@@ -105,7 +126,7 @@
           (lock (make-lock)))
       (with-lock-held (lock)
         (condition-wait
-         (play file-name
+         (play (maybe-convert-soundfile file-name)
                :begin begin :end end :gap gap
                :speed speed
                :pitch effective-pitch
